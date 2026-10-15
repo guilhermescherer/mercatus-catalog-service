@@ -1,20 +1,30 @@
+# Nome do workflow na aba "Actions".
 name: ci
 
+# Gatilhos: quando o CI roda.
 on:
   push:
-    branches: [main]
+    branches: [main]          # a cada push na main
   pull_request:
-    branches: [main]
+    branches: [main]          # e em todo PR que mira a main (valida antes de mergear)
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    # VM efêmera do GitHub (tem Docker, usado pelo Testcontainers)
+
+    # Permissões do token automático. Aqui só LEMOS packages,
+    # porque o catalog consome o parent publicado (não publica nada).
     permissions:
       contents: read
       packages: read
+
     steps:
+      # Traz o código do catalog para a VM.
       - uses: actions/checkout@v4
 
+      # Instala o JDK 25. Não configuramos "server-id" aqui porque o
+      # repositório e as credenciais já estão no nosso .mvn/settings.xml
+      # versionado (ver passo abaixo), que lê usuário/senha de variáveis.
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
@@ -22,8 +32,14 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # Compila, roda testes unitários (ArchUnit via surefire) e de integração
+      # (*IT via failsafe, com Testcontainers subindo o Postgres no Docker da VM).
+      # -s .mvn/settings.xml aponta o Maven para o nosso settings, que define o
+      # repositório GitHub Packages de onde o parent (mercatus-parent) é baixado.
       - name: Build and verify
         run: mvn -B -s .mvn/settings.xml verify
         env:
+          # Credenciais que o settings.xml lê (${env.MAVEN_USERNAME}/${env.MAVEN_PASSWORD})
+          # para autenticar no GitHub Packages. O GITHUB_TOKEN é criado por execução.
           MAVEN_USERNAME: ${{ github.actor }}
           MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

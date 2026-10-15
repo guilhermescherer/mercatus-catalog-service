@@ -1,15 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  settings.xml do Maven (versão do projeto, usada com: mvn -s .mvn/settings.xml ...).
+
+  Ele resolve um problema específico: o pom.xml do catalog declara o
+  mercatus-parent como <parent>, mas o Maven precisa saber DE ONDE baixar esse
+  parent. Esse "de onde" NÃO pode ficar no próprio pom.xml (o parent é lido
+  antes do resto do pom), então mora aqui, no settings.xml.
+
+  Duas peças trabalham juntas:
+    - <repositories>: ONDE buscar o artefato (a URL do GitHub Packages).
+    - <servers>:      COMO autenticar nessa URL (usuário + token).
+  O elo entre elas é o <id> "github", igual nos dois blocos.
+-->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
     <profiles>
         <profile>
             <id>github</id>
+            <!--
+              activeByDefault = este profile vale sempre, sem precisar passar -P.
+              É o que garante que o repositório abaixo esteja sempre disponível.
+            -->
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <repositories>
                 <repository>
+                    <!--
+                      Este id ("github") precisa casar com o id em <servers>.
+                      É assim que o Maven liga "onde baixar" com "qual credencial usar".
+                    -->
                     <id>github</id>
                     <url>https://maven.pkg.github.com/guilhermescherer/mercatus-parent</url>
                     <releases>
@@ -25,7 +46,23 @@
 
     <servers>
         <server>
+            <!-- Mesmo id do <repository> acima: é o que amarra credencial ao repositório. -->
             <id>github</id>
+            <!--
+              ${env.XXX} lê uma VARIÁVEL DE AMBIENTE do processo que roda o Maven.
+              O Maven NÃO inventa esses valores: eles vêm de quem exporta a env antes.
+
+              No GitHub Actions (ci.yml), o passo "Build and verify" define:
+                  env:
+                    MAVEN_USERNAME: ${{ github.actor }}
+                    MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+              Essas duas viram variáveis de ambiente na VM, e o Maven as lê aqui.
+
+              Localmente, você faria o equivalente antes de rodar o mvn:
+                  export MAVEN_USERNAME=seu-usuario
+                  export MAVEN_PASSWORD=seu-token-com-read:packages
+              Por isso o token NUNCA fica escrito no arquivo — só a referência à env.
+            -->
             <username>${env.MAVEN_USERNAME}</username>
             <password>${env.MAVEN_PASSWORD}</password>
         </server>

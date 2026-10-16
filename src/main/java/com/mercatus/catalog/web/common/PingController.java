@@ -1,4 +1,4 @@
-package com.mercatus.catalog.web;
+package com.mercatus.catalog.web.common;
 
 import java.time.Instant;
 import java.util.Map;

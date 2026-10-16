@@ -6,7 +6,9 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 class ArchitectureTest {
 
@@ -15,19 +17,76 @@ class ArchitectureTest {
             .importPackages("com.mercatus.catalog");
 
     @Test
-    void domainShouldNotDependOnWebOrInfrastructure() {
+    void layeredArchitectureIsRespected() {
+        ArchRule rule = layeredArchitecture()
+                .consideringOnlyDependenciesInLayers()
+                .layer("Domain").definedBy("..catalog.domain..")
+                .layer("Application").definedBy("..catalog.application..")
+                .layer("Infrastructure").definedBy("..catalog.infrastructure..")
+                .layer("Web").definedBy("..catalog.web..")
+                .whereLayer("Web").mayNotBeAccessedByAnyLayer()
+                .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer()
+                .whereLayer("Application").mayOnlyBeAccessedByLayers("Web", "Infrastructure")
+                .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Infrastructure", "Web");
+        rule.check(classes);
+    }
+
+    @Test
+    void applicationOnlyDependsOnDomainAndItself() {
         ArchRule rule = noClasses()
-                .that().resideInAPackage("..domain..")
+                .that().resideInAPackage("..application..")
                 .should().dependOnClassesThat().resideInAnyPackage("..web..", "..infrastructure..")
                 .allowEmptyShould(true);
         rule.check(classes);
     }
 
     @Test
-    void domainShouldNotDependOnApplication() {
+    void drivenPortsAreImplementedInInfrastructure() {
+        ArchRule rule = classes()
+                .that().resideInAPackage("..application..port.out..")
+                .and().areInterfaces()
+                .should().onlyHaveDependentClassesThat()
+                .resideInAnyPackage("..application..", "..infrastructure..")
+                .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
+    @Test
+    void domainDoesNotDependOnOtherLayers() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..domain..")
-                .should().dependOnClassesThat().resideInAPackage("..application..")
+                .should().dependOnClassesThat().resideInAnyPackage("..web..", "..infrastructure..", "..application..")
+                .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
+    @Test
+    void domainIsFreeOfFrameworks() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("..domain..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "org.springframework..",
+                        "jakarta.persistence..",
+                        "jakarta.validation..",
+                        "com.fasterxml.jackson..")
+                .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
+    @Test
+    void jpaEntitiesLiveOnlyInInfrastructure() {
+        ArchRule rule = classes()
+                .that().areAnnotatedWith(jakarta.persistence.Entity.class)
+                .should().resideInAPackage("..infrastructure..")
+                .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
+    @Test
+    void controllersLiveOnlyInWeb() {
+        ArchRule rule = classes()
+                .that().areAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
+                .should().resideInAPackage("..web..")
                 .allowEmptyShould(true);
         rule.check(classes);
     }

@@ -1,4 +1,4 @@
-package com.mercatus.catalog.application;
+package com.mercatus.catalog.application.exception;
 
 public class ResourceNotFoundException extends RuntimeException {
 

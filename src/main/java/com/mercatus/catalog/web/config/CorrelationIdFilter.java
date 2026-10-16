@@ -1,4 +1,4 @@
-package com.mercatus.catalog.web;
+package com.mercatus.catalog.web.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

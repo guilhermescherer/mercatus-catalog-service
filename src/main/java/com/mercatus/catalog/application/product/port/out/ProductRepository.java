@@ -17,6 +17,8 @@ public interface ProductRepository {
 
     Optional<Product> findById(UUID id);
 
+    Optional<Product> findBySkuCode(String code);
+
     boolean existsBySkuCode(String code);
 
     PageResult<Product> findAll(ProductFilter filter, PageQuery pageQuery);

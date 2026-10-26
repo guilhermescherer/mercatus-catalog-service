@@ -6,6 +6,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
@@ -41,7 +42,7 @@ class ArchitectureTest {
     }
 
     @Test
-    void drivenPortsAreImplementedInInfrastructure() {
+    void drivenPortsAreOnlyUsedByApplicationAndInfrastructure() {
         ArchRule rule = classes()
                 .that().resideInAPackage("..application..port.out..")
                 .and().areInterfaces()
@@ -49,6 +50,13 @@ class ArchitectureTest {
                 .resideInAnyPackage("..application..", "..infrastructure..")
                 .allowEmptyShould(true);
         rule.check(classes);
+    }
+
+    @Test
+    void drivenPortsAreImplementedInInfrastructure() {
+        classes().that().implement(resideInAPackage("..application..port.out.."))
+                .should().resideInAPackage("..infrastructure..")
+                .check(classes);
     }
 
     @Test

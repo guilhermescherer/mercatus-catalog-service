@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -31,7 +32,11 @@ class CatalogApiIT {
 
     @BeforeEach
     void setUp() {
-        client = RestClient.create("http://localhost:" + port + "/api/v1");
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(15000);
+        client = RestClient.builder().baseUrl("http://localhost:" + port + "/api/v1")
+                .requestFactory(factory).build();
     }
 
     private String unique(String prefix) {

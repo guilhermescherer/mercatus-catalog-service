@@ -43,6 +43,11 @@ class ProductRepositoryAdapter implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findBySkuCode(String code) {
+        return jpaRepository.findBySkusCode(code).map(ProductMapper::toDomain);
+    }
+
+    @Override
     public boolean existsBySkuCode(String code) {
         return jpaRepository.existsBySkusCode(code);
     }

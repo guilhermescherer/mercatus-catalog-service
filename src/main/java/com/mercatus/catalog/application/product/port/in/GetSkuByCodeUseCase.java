@@ -1,6 +1,7 @@
 package com.mercatus.catalog.application.product.port.in;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 public interface GetSkuByCodeUseCase {
 
@@ -11,6 +12,8 @@ public interface GetSkuByCodeUseCase {
             BigDecimal price,
             String currency,
             String status,
-            boolean availableForSale) {
+            boolean availableForSale,
+            String productName,
+            Map<String, String> variationAttributes) {
     }
 }

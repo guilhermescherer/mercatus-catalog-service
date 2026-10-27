@@ -32,6 +32,8 @@ public class GetSkuByCodeService implements GetSkuByCodeUseCase {
                 sku.price() == null ? null : sku.price().amount(),
                 sku.price() == null ? null : sku.price().currency(),
                 sku.status().name(),
-                available);
+                available,
+                product.name(),
+                sku.variationAttributes());
     }
 }

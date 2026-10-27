@@ -5,6 +5,7 @@ import com.mercatus.catalog.web.product.dto.SkuLookupResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -15,6 +16,11 @@ class SkuController {
 
     SkuController(GetSkuByCodeUseCase getSkuByCode) {
         this.getSkuByCode = getSkuByCode;
+    }
+
+    @GetMapping(params = "code")
+    SkuLookupResponse getByExactCode(@RequestParam String code) {
+        return SkuLookupResponse.from(getSkuByCode.getByCode(code));
     }
 
     @GetMapping("/{code}")

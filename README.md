@@ -84,7 +84,7 @@ O perfil opcional `local` desativa logs JSON. Para usá-lo, acrescente `-Dspring
 - `POST /products/{id}/skus`, `PUT /products/{id}/skus/{skuId}`
 - `PUT /products/{id}/skus/{skuId}/price`, `GET /products/{id}/skus/{skuId}/price-history`
 - `POST /products/{id}/skus/{skuId}:activate`, `POST /products/{id}/skus/{skuId}:deactivate`
-- `GET /skus/{code}`
+- `GET /skus?code=...` e `GET /skus/{code}`
 
 Listagens usam `page=0`, `size=20` e ordenação padrão `name,asc`. Produtos aceitam `categoryId`, `status` e `name`; categorias aceitam paginação e `sort`. Por exemplo:
 
@@ -96,9 +96,22 @@ A resposta paginada contém `content`, `page`, `size` e `totalElements`. Os cont
 
 ### Consulta de SKU por código
 
-`GET /api/v1/skus/{code}` retorna `code`, `price`, `currency`, `status` do SKU e `availableForSale`. Preço e moeda são nulos quando o SKU ainda não tem preço. Código inexistente retorna `404` em Problem Details.
+`GET /api/v1/skus?code=...` retorna `code`, `price`, `currency`, `status` do SKU,
+`availableForSale`, `productName` e `variationAttributes`. Os dois últimos
+campos ampliam o contrato de forma aditiva para o snapshot do Order: nome
+atual do produto e atributos do SKU solicitado, incluindo mapa vazio.
+Preço e moeda são nulos quando o SKU ainda não tem preço. Código inexistente
+retorna `404` em Problem Details.
 
-`availableForSale` depende de produto e SKU estarem `ACTIVE`; o saldo físico é consultado no Inventory. O futuro Order consumirá essa consulta; o Inventory não chama o Catalog nesta entrega.
+O Order usa o parâmetro de query `code`, codificado como valor exato, para
+preservar barras, contrabarras, pontos e caracteres reservados sem normalização
+do caminho. Exemplo: `curl --get --data-urlencode 'code=A/B' http://localhost:8081/api/v1/skus`.
+A rota existente `GET /api/v1/skus/{code}` continua disponível para códigos
+compatíveis com um segmento de caminho.
+
+`availableForSale` depende de produto e SKU estarem `ACTIVE`; o saldo físico
+é consultado no Inventory. O Order consome o lookup na criação do pedido;
+o Inventory não chama o Catalog nesta entrega.
 
 ## Modelagem e regras
 
@@ -118,7 +131,12 @@ Os testes de integração iniciam PostgreSQL 17 em containers próprios; o Compo
 
 Cobrem: `Money`, `Slug`, regra de ativação, disponibilidade de SKU e histórico de preço; e, via Testcontainers, ativação, unicidade de slug/código, conflito de versão → 409, filtros + paginação e histórico de preço. `CatalogSkuLookupIT` cobre preço/moeda, mudança de preço, combinações de status, SKU sem preço, múltiplos SKUs, `404` e OpenAPI.
 
-Na validação registrada em 2026-10-24, 26 testes locais passaram; a integração foi impedida pelo acesso ao Docker. Os cenários de lookup ainda dependem de execução com PostgreSQL real, conforme as [evidências da entrega](../docs/specs/inventory-phase4/validation.md).
+Na entrega da fase 4, o lookup foi validado com PostgreSQL real, conforme o
+roadmap. Para a ampliação `order-creation-query`, em 2026-10-26 os 26 testes
+locais passaram; os testes de integração atualizados compilaram, mas sua
+execução foi impedida pelo bloqueio ao Docker. As novas asserções incluem
+nome, atributos, mapa vazio, escolha entre variações e schema OpenAPI. Consulte
+o [registro desta spec](../.kiro/specs/order-creation-query/validation.md).
 
 ## CI
 

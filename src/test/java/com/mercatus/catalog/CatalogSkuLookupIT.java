@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -50,6 +51,9 @@ class CatalogSkuLookupIT {
         assertThat(response.code()).isEqualTo(sku.code());
         assertThat(response.price()).isEqualByComparingTo("42.50");
         assertThat(response.currency()).isEqualTo("BRL");
+        ProductResponse product = client.get().uri("/products/" + sku.productId()).retrieve().body(ProductResponse.class);
+        assertThat(response.productName()).isEqualTo(product.name());
+        assertThat(response.variationAttributes()).isEmpty();
     }
 
     @Test
@@ -103,7 +107,8 @@ class CatalogSkuLookupIT {
 
     @Test
     void unknownCodeReturnsNotFoundProblemDetails() {
-        client.get().uri("/skus/" + UUID.randomUUID()).exchange((request, response) -> {
+        client.get().uri(builder -> builder.pathSegment("skus")
+                .queryParam("code", "{code}").build(UUID.randomUUID())).exchange((request, response) -> {
             assertThat(response.getStatusCode().value()).isEqualTo(404);
             assertThat(response.getHeaders().getContentType().toString()).startsWith("application/problem+json");
             return null;
@@ -114,31 +119,79 @@ class CatalogSkuLookupIT {
     void openApiDocumentsSkuLookup() {
         Map<?, ?> api = client.get().uri("/v3/api-docs").retrieve().body(Map.class);
         assertThat(((Map<?, ?>) api.get("paths")).containsKey("/skus/{code}")).isTrue();
+        Map<?, ?> paths = (Map<?, ?>) api.get("paths");
+        Map<?, ?> lookup = (Map<?, ?>) ((Map<?, ?>) paths.get("/skus")).get("get");
+        java.util.List<?> parameters = (java.util.List<?>) lookup.get("parameters");
+        assertThat(parameters).anySatisfy(parameter -> {
+            Map<?, ?> code = (Map<?, ?>) parameter;
+            assertThat(code.get("name")).isEqualTo("code");
+            assertThat(code.get("in")).isEqualTo("query");
+            assertThat(code.get("required")).isEqualTo(true);
+        });
+        Map<?, ?> schemas = (Map<?, ?>) ((Map<?, ?>) api.get("components")).get("schemas");
+        Map<?, ?> properties = (Map<?, ?>) ((Map<?, ?>) schemas.get("SkuLookupResponse")).get("properties");
+        assertThat(properties.containsKey("productName")).isTrue();
+        assertThat(properties.containsKey("variationAttributes")).isTrue();
     }
 
     @Test
     void lookupSelectsTheRequestedSkuWhenTheProductHasMultipleVariations() {
         SkuFixture first = createSku("42.50");
         String secondCode = "LOOKUP-" + UUID.randomUUID();
-        addSku(first.productId(), secondCode, "89.00");
+        client.post().uri("/products/" + first.productId() + "/skus")
+                .body(Map.of("code", secondCode, "price", "89.00", "variationAttributes", Map.of("size", "M", "color", "blue")))
+                .retrieve().toBodilessEntity();
 
         assertThat(lookup(first.code()).price()).isEqualByComparingTo("42.50");
         SkuLookupResponse second = lookup(secondCode);
         assertThat(second.code()).isEqualTo(secondCode);
         assertThat(second.price()).isEqualByComparingTo("89.00");
+        assertThat(second.variationAttributes()).containsExactlyInAnyOrderEntriesOf(Map.of("size", "M", "color", "blue"));
+        assertThat(second.productName()).isEqualTo(lookup(first.code()).productName());
+        assertThat(lookup(first.code()).variationAttributes()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LOOKUP/A", "LOOKUP\\A", ".", "..", "LOOKUP +?&#% ç"})
+    void queryLookupPreservesReservedCharactersAndDotSegments(String code) {
+        SkuFixture sku = createSku("42.50", code);
+        String productPath = "/products/" + sku.productId();
+        client.post().uri(productPath + "/skus/" + sku.skuId() + ":activate")
+                .retrieve().toBodilessEntity();
+        client.post().uri(productPath + ":activate").retrieve().toBodilessEntity();
+
+        SkuLookupResponse response = lookup(code);
+
+        assertThat(response.code()).isEqualTo(code);
+        assertThat(response.price()).isEqualByComparingTo("42.50");
+        assertThat(response.availableForSale()).isTrue();
+    }
+
+    @Test
+    void pathLookupPreservesExistingContract() {
+        SkuFixture sku = createSku("42.50");
+        SkuLookupResponse response = client.get().uri("/skus/" + sku.code())
+                .retrieve().body(SkuLookupResponse.class);
+
+        assertThat(response).isEqualTo(lookup(sku.code()));
     }
 
     private SkuLookupResponse lookup(String code) {
-        return client.get().uri("/skus/" + code).retrieve().body(SkuLookupResponse.class);
+        return client.get().uri(builder -> builder.pathSegment("skus")
+                        .queryParam("code", "{code}").build(code))
+                .retrieve().body(SkuLookupResponse.class);
     }
 
     private SkuFixture createSku(String price) {
+        return createSku(price, "LOOKUP-" + UUID.randomUUID());
+    }
+
+    private SkuFixture createSku(String price, String code) {
         CategoryResponse category = client.post().uri("/categories")
                 .body(Map.of("name", "Category-" + UUID.randomUUID())).retrieve().body(CategoryResponse.class);
         ProductResponse product = client.post().uri("/products")
                 .body(Map.of("name", "Product-" + UUID.randomUUID(), "categoryId", category.id()))
                 .retrieve().body(ProductResponse.class);
-        String code = "LOOKUP-" + UUID.randomUUID();
         ProductResponse withSku = addSku(product.id(), code, price);
         return new SkuFixture(product.id(), withSku.skus().getFirst().id(), code);
     }

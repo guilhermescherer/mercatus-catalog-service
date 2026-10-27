@@ -41,11 +41,10 @@ public class Sku {
         this.version = version;
     }
 
-    static Sku create(String code, Map<String, String> variationAttributes, Money price) {
+    static Sku create(UUID id, String code, Map<String, String> variationAttributes, Money price, Instant now) {
         requireCode(code);
-        Instant now = Instant.now();
         return new Sku(
-                UUID.randomUUID(),
+                id,
                 code.trim(),
                 variationAttributes == null ? Map.of() : variationAttributes,
                 price,
@@ -75,23 +74,22 @@ public class Sku {
                 version);
     }
 
-    void update(Map<String, String> variationAttributes) {
+    void update(Map<String, String> variationAttributes, Instant now) {
         this.variationAttributes = new LinkedHashMap<>(
                 variationAttributes == null ? Map.of() : variationAttributes);
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
-    SkuPriceHistory changePrice(Money newPrice) {
+    SkuPriceHistory changePrice(Money newPrice, Instant now) {
         if (newPrice == null) {
             throw new DomainRuleException("Price is required");
         }
-        Instant now = Instant.now();
         this.price = newPrice;
         this.updatedAt = now;
         return SkuPriceHistory.record(id, newPrice, now);
     }
 
-    void activate() {
+    void activate(Instant now) {
         if (status == Status.ACTIVE) {
             return;
         }
@@ -99,15 +97,15 @@ public class Sku {
             throw new DomainRuleException("SKU without a price cannot be activated");
         }
         this.status = Status.ACTIVE;
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
-    void deactivate() {
+    void deactivate(Instant now) {
         if (status == Status.INACTIVE) {
             return;
         }
         this.status = Status.INACTIVE;
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
     public boolean hasPrice() {

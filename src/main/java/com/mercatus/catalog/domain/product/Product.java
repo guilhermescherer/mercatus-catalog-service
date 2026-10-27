@@ -55,11 +55,10 @@ public class Product {
     }
 
     public static Product create(
-            String name, String description, UUID categoryId, Map<String, String> attributes) {
+            UUID id, String name, String description, UUID categoryId, Map<String, String> attributes, Instant now) {
         requireName(name);
-        Instant now = Instant.now();
         return new Product(
-                UUID.randomUUID(),
+                id,
                 name.trim(),
                 description,
                 categoryId,
@@ -86,44 +85,44 @@ public class Product {
                 id, name, description, categoryId, attributes, status, skus, createdAt, updatedAt, version);
     }
 
-    public void update(String name, String description, UUID categoryId, Map<String, String> attributes) {
+    public void update(String name, String description, UUID categoryId, Map<String, String> attributes, Instant now) {
         requireName(name);
         this.name = name.trim();
         this.description = description;
         this.categoryId = categoryId;
         this.attributes = new LinkedHashMap<>(attributes == null ? Map.of() : attributes);
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
-    public Sku addSku(String code, Map<String, String> variationAttributes, Money price) {
-        Sku sku = Sku.create(code, variationAttributes, price);
+    public Sku addSku(UUID skuId, String code, Map<String, String> variationAttributes, Money price, Instant now) {
+        Sku sku = Sku.create(skuId, code, variationAttributes, price, now);
         skus.add(sku);
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
         return sku;
     }
 
-    public void updateSku(UUID skuId, Map<String, String> variationAttributes) {
-        requireSku(skuId).update(variationAttributes);
-        this.updatedAt = Instant.now();
+    public void updateSku(UUID skuId, Map<String, String> variationAttributes, Instant now) {
+        requireSku(skuId).update(variationAttributes, now);
+        this.updatedAt = now;
     }
 
-    public SkuPriceHistory changeSkuPrice(UUID skuId, Money newPrice) {
-        SkuPriceHistory history = requireSku(skuId).changePrice(newPrice);
-        this.updatedAt = Instant.now();
+    public SkuPriceHistory changeSkuPrice(UUID skuId, Money newPrice, Instant now) {
+        SkuPriceHistory history = requireSku(skuId).changePrice(newPrice, now);
+        this.updatedAt = now;
         return history;
     }
 
-    public void activateSku(UUID skuId) {
-        requireSku(skuId).activate();
-        this.updatedAt = Instant.now();
+    public void activateSku(UUID skuId, Instant now) {
+        requireSku(skuId).activate(now);
+        this.updatedAt = now;
     }
 
-    public void deactivateSku(UUID skuId) {
-        requireSku(skuId).deactivate();
-        this.updatedAt = Instant.now();
+    public void deactivateSku(UUID skuId, Instant now) {
+        requireSku(skuId).deactivate(now);
+        this.updatedAt = now;
     }
 
-    public void activate() {
+    public void activate(Instant now) {
         if (status == Status.ACTIVE) {
             return;
         }
@@ -136,10 +135,10 @@ public class Product {
                     "Product without a priced SKU cannot be activated");
         }
         this.status = Status.ACTIVE;
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
-    public void deactivate() {
+    public void deactivate(Instant now) {
         if (status == Status.INACTIVE) {
             return;
         }
@@ -148,7 +147,7 @@ public class Product {
                     "Only an active product can be deactivated");
         }
         this.status = Status.INACTIVE;
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
     public boolean isSkuAvailableForSale(UUID skuId) {

@@ -10,6 +10,7 @@ import com.mercatus.catalog.domain.exception.SkuNotFoundException;
 import com.mercatus.catalog.domain.product.Product;
 import com.mercatus.catalog.domain.product.SkuPriceHistory;
 import com.mercatus.catalog.domain.shared.Money;
+import java.time.Clock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +19,12 @@ class ChangeSkuPriceService implements ChangeSkuPriceUseCase {
 
     private final ProductGateway gateway;
     private final SkuPriceHistoryRepository priceHistoryRepository;
+    private final Clock clock;
 
-    ChangeSkuPriceService(ProductGateway gateway, SkuPriceHistoryRepository priceHistoryRepository) {
+    ChangeSkuPriceService(ProductGateway gateway, SkuPriceHistoryRepository priceHistoryRepository, Clock clock) {
         this.gateway = gateway;
         this.priceHistoryRepository = priceHistoryRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -30,7 +33,7 @@ class ChangeSkuPriceService implements ChangeSkuPriceUseCase {
         Product product = gateway.require(command.productId());
         try {
             Money money = Money.of(command.price());
-            SkuPriceHistory history = product.changeSkuPrice(command.skuId(), money);
+            SkuPriceHistory history = product.changeSkuPrice(command.skuId(), money, clock.instant());
             Product saved = gateway.persist(product);
             priceHistoryRepository.save(history);
             return saved;

@@ -34,10 +34,9 @@ public class Category {
         this.version = version;
     }
 
-    public static Category create(String name, UUID parentId) {
+    public static Category create(UUID id, String name, UUID parentId, Instant now) {
         requireName(name);
-        Instant now = Instant.now();
-        return new Category(UUID.randomUUID(), name.trim(), Slug.of(name), parentId, now, now, null);
+        return new Category(id, name.trim(), Slug.of(name), parentId, now, now, null);
     }
 
     public static Category reconstitute(
@@ -52,7 +51,7 @@ public class Category {
         return category;
     }
 
-    public void update(String name, UUID parentId) {
+    public void update(String name, UUID parentId, Instant now) {
         requireName(name);
         if (id.equals(parentId)) {
             throw new DomainRuleException("Category cannot be its own parent");
@@ -60,7 +59,7 @@ public class Category {
         this.name = name.trim();
         this.slug = Slug.of(name);
         this.parentId = parentId;
-        this.updatedAt = Instant.now();
+        this.updatedAt = now;
     }
 
     private static void requireName(String name) {

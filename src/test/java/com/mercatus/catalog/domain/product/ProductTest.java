@@ -14,63 +14,74 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ProductTest {
 
+    private static final Instant NOW = Instant.parse("2026-10-27T12:00:00Z");
+
     private static Money brl(String amount) {
         return Money.of(new BigDecimal(amount));
     }
 
+    private static Product product(UUID categoryId) {
+        return Product.create(UUID.randomUUID(), "Shoe", null, categoryId, Map.of(), NOW);
+    }
+
+    private static Sku addSku(Product product, Money price) {
+        return product.addSku(UUID.randomUUID(), "SKU-1", Map.of(), price, NOW);
+    }
+
     @Test
     void activatingProductWithoutCategoryIsRejected() {
-        Product product = Product.create("Shoe", null, null, Map.of());
-        product.addSku("SKU-1", Map.of(), brl("100.00"));
-        assertThatThrownBy(product::activate).isInstanceOf(InvalidStateTransitionException.class);
+        Product product = product(null);
+        addSku(product, brl("100.00"));
+        assertThatThrownBy(() -> product.activate(NOW)).isInstanceOf(InvalidStateTransitionException.class);
     }
 
     @Test
     void activatingProductWithoutPricedSkuIsRejected() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        product.addSku("SKU-1", Map.of(), null);
-        assertThatThrownBy(product::activate).isInstanceOf(InvalidStateTransitionException.class);
+        Product product = product(UUID.randomUUID());
+        addSku(product, null);
+        assertThatThrownBy(() -> product.activate(NOW)).isInstanceOf(InvalidStateTransitionException.class);
     }
 
     @Test
     void activatingProductWithCategoryAndPricedSkuSucceeds() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        product.addSku("SKU-1", Map.of(), brl("100.00"));
-        product.activate();
+        Product product = product(UUID.randomUUID());
+        addSku(product, brl("100.00"));
+        product.activate(NOW);
         assertThat(product.status()).isEqualTo(Status.ACTIVE);
     }
 
     @Test
     void skuIsAvailableOnlyWhenProductAndSkuAreActive() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        Sku sku = product.addSku("SKU-1", Map.of(), brl("100.00"));
-        product.activateSku(sku.id());
-        product.activate();
+        Product product = product(UUID.randomUUID());
+        Sku sku = addSku(product, brl("100.00"));
+        product.activateSku(sku.id(), NOW);
+        product.activate(NOW);
         assertThat(product.isSkuAvailableForSale(sku.id())).isTrue();
 
-        product.deactivate();
+        product.deactivate(NOW);
         assertThat(product.isSkuAvailableForSale(sku.id())).isFalse();
     }
 
     @Test
     void deactivatingDraftProductIsRejected() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        assertThatThrownBy(product::deactivate).isInstanceOf(InvalidStateTransitionException.class);
+        Product product = product(UUID.randomUUID());
+        assertThatThrownBy(() -> product.deactivate(NOW)).isInstanceOf(InvalidStateTransitionException.class);
     }
 
     @Test
     void changingSkuPriceProducesHistoryEntry() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        Sku sku = product.addSku("SKU-1", Map.of(), brl("100.00"));
+        Product product = product(UUID.randomUUID());
+        Sku sku = addSku(product, brl("100.00"));
 
-        SkuPriceHistory first = product.changeSkuPrice(sku.id(), brl("120.00"));
-        SkuPriceHistory second = product.changeSkuPrice(sku.id(), brl("90.00"));
+        SkuPriceHistory first = product.changeSkuPrice(sku.id(), brl("120.00"), NOW);
+        SkuPriceHistory second = product.changeSkuPrice(sku.id(), brl("90.00"), NOW);
 
         assertThat(first.price()).isEqualTo(brl("120.00"));
         assertThat(second.price()).isEqualTo(brl("90.00"));
@@ -79,23 +90,23 @@ class ProductTest {
 
     @Test
     void negativeSkuPriceIsRejected() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        Sku sku = product.addSku("SKU-1", Map.of(), null);
-        assertThatThrownBy(() -> product.changeSkuPrice(sku.id(), Money.of(new BigDecimal("-1.00"))))
+        Product product = product(UUID.randomUUID());
+        Sku sku = addSku(product, null);
+        assertThatThrownBy(() -> product.changeSkuPrice(sku.id(), Money.of(new BigDecimal("-1.00")), NOW))
                 .isInstanceOf(DomainRuleException.class);
     }
 
     @Test
     void activatingSkuWithoutPriceIsRejected() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        Sku sku = product.addSku("SKU-1", Map.of(), null);
-        assertThatThrownBy(() -> product.activateSku(sku.id())).isInstanceOf(DomainRuleException.class);
+        Product product = product(UUID.randomUUID());
+        Sku sku = addSku(product, null);
+        assertThatThrownBy(() -> product.activateSku(sku.id(), NOW)).isInstanceOf(DomainRuleException.class);
     }
 
     @Test
     void operatingOnUnknownSkuThrowsNotFound() {
-        Product product = Product.create("Shoe", null, UUID.randomUUID(), Map.of());
-        assertThatThrownBy(() -> product.activateSku(UUID.randomUUID()))
+        Product product = product(UUID.randomUUID());
+        assertThatThrownBy(() -> product.activateSku(UUID.randomUUID(), NOW))
                 .isInstanceOf(SkuNotFoundException.class);
     }
 }

@@ -9,6 +9,7 @@ import com.mercatus.catalog.domain.category.Category;
 import com.mercatus.catalog.domain.exception.DomainRuleException;
 import com.mercatus.catalog.domain.exception.DuplicateSlugException;
 import com.mercatus.catalog.domain.shared.Slug;
+import java.time.Clock;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +19,12 @@ class UpdateCategoryService implements UpdateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
     private final CategoryGateway gateway;
+    private final Clock clock;
 
-    UpdateCategoryService(CategoryRepository categoryRepository, CategoryGateway gateway) {
+    UpdateCategoryService(CategoryRepository categoryRepository, CategoryGateway gateway, Clock clock) {
         this.categoryRepository = categoryRepository;
         this.gateway = gateway;
+        this.clock = clock;
     }
 
     @Override
@@ -32,7 +35,7 @@ class UpdateCategoryService implements UpdateCategoryUseCase {
         gateway.validateParent(command.parentId());
         Slug previousSlug = category.slug();
         try {
-            category.update(command.name(), command.parentId());
+            category.update(command.name(), command.parentId(), clock.instant());
             if (!category.slug().equals(previousSlug) && categoryRepository.existsBySlug(category.slug())) {
                 throw new StateConflictException("Category slug already exists: " + category.slug().value());
             }

@@ -8,6 +8,9 @@ import com.mercatus.catalog.application.exception.StateConflictException;
 import com.mercatus.catalog.domain.category.Category;
 import com.mercatus.catalog.domain.exception.DomainRuleException;
 import com.mercatus.catalog.domain.exception.DuplicateSlugException;
+import java.time.Clock;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +19,15 @@ class CreateCategoryService implements CreateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
     private final CategoryGateway gateway;
+    private final Clock clock;
+    private final Supplier<UUID> identifiers;
 
-    CreateCategoryService(CategoryRepository categoryRepository, CategoryGateway gateway) {
+    CreateCategoryService(CategoryRepository categoryRepository, CategoryGateway gateway,
+                          Clock clock, Supplier<UUID> identifiers) {
         this.categoryRepository = categoryRepository;
         this.gateway = gateway;
+        this.clock = clock;
+        this.identifiers = identifiers;
     }
 
     @Override
@@ -27,7 +35,7 @@ class CreateCategoryService implements CreateCategoryUseCase {
     public Category create(CreateCategoryCommand command) {
         gateway.validateParent(command.parentId());
         try {
-            Category category = Category.create(command.name(), command.parentId());
+            Category category = Category.create(identifiers.get(), command.name(), command.parentId(), clock.instant());
             if (categoryRepository.existsBySlug(category.slug())) {
                 throw new StateConflictException("Category slug already exists: " + category.slug().value());
             }

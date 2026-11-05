@@ -1,4 +1,4 @@
-package com.mercatus.catalog;
+package com.mercatus.catalog.integration.sku;
 
 import com.mercatus.catalog.web.category.dto.CategoryResponse;
 import com.mercatus.catalog.web.product.dto.ProductResponse;

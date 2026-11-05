@@ -4,7 +4,7 @@ import com.mercatus.catalog.application.exception.BusinessRuleException;
 import com.mercatus.catalog.application.exception.StateConflictException;
 import com.mercatus.catalog.application.product.port.in.AddSkuUseCase;
 import com.mercatus.catalog.application.product.port.out.SkuPriceHistoryRepository;
-import com.mercatus.catalog.application.product.usecase.support.ProductGateway;
+import com.mercatus.catalog.application.product.usecase.support.ProductAccess;
 import com.mercatus.catalog.domain.exception.DomainRuleException;
 import com.mercatus.catalog.domain.exception.DuplicateSkuCodeException;
 import com.mercatus.catalog.domain.product.Product;
@@ -20,12 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class AddSkuService implements AddSkuUseCase {
 
-    private final ProductGateway gateway;
+    private final ProductAccess gateway;
     private final SkuPriceHistoryRepository priceHistoryRepository;
     private final Clock clock;
     private final Supplier<UUID> identifiers;
 
-    AddSkuService(ProductGateway gateway, SkuPriceHistoryRepository priceHistoryRepository,
+    AddSkuService(ProductAccess gateway, SkuPriceHistoryRepository priceHistoryRepository,
                   Clock clock, Supplier<UUID> identifiers) {
         this.gateway = gateway;
         this.priceHistoryRepository = priceHistoryRepository;

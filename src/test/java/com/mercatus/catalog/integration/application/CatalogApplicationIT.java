@@ -1,4 +1,4 @@
-package com.mercatus.catalog;
+package com.mercatus.catalog.integration.application;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

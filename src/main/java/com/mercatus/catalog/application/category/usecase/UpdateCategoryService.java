@@ -2,7 +2,7 @@ package com.mercatus.catalog.application.category.usecase;
 
 import com.mercatus.catalog.application.category.port.in.UpdateCategoryUseCase;
 import com.mercatus.catalog.application.category.port.out.CategoryRepository;
-import com.mercatus.catalog.application.category.usecase.support.CategoryGateway;
+import com.mercatus.catalog.application.category.usecase.support.CategoryAccess;
 import com.mercatus.catalog.application.exception.BusinessRuleException;
 import com.mercatus.catalog.application.exception.StateConflictException;
 import com.mercatus.catalog.domain.category.Category;
@@ -18,10 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 class UpdateCategoryService implements UpdateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
-    private final CategoryGateway gateway;
+    private final CategoryAccess gateway;
     private final Clock clock;
 
-    UpdateCategoryService(CategoryRepository categoryRepository, CategoryGateway gateway, Clock clock) {
+    UpdateCategoryService(CategoryRepository categoryRepository, CategoryAccess gateway, Clock clock) {
         this.categoryRepository = categoryRepository;
         this.gateway = gateway;
         this.clock = clock;

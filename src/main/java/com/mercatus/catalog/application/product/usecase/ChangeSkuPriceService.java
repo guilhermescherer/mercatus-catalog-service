@@ -4,7 +4,7 @@ import com.mercatus.catalog.application.exception.BusinessRuleException;
 import com.mercatus.catalog.application.exception.ResourceNotFoundException;
 import com.mercatus.catalog.application.product.port.in.ChangeSkuPriceUseCase;
 import com.mercatus.catalog.application.product.port.out.SkuPriceHistoryRepository;
-import com.mercatus.catalog.application.product.usecase.support.ProductGateway;
+import com.mercatus.catalog.application.product.usecase.support.ProductAccess;
 import com.mercatus.catalog.domain.exception.DomainRuleException;
 import com.mercatus.catalog.domain.exception.SkuNotFoundException;
 import com.mercatus.catalog.domain.product.Product;
@@ -17,11 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class ChangeSkuPriceService implements ChangeSkuPriceUseCase {
 
-    private final ProductGateway gateway;
+    private final ProductAccess gateway;
     private final SkuPriceHistoryRepository priceHistoryRepository;
     private final Clock clock;
 
-    ChangeSkuPriceService(ProductGateway gateway, SkuPriceHistoryRepository priceHistoryRepository, Clock clock) {
+    ChangeSkuPriceService(ProductAccess gateway, SkuPriceHistoryRepository priceHistoryRepository, Clock clock) {
         this.gateway = gateway;
         this.priceHistoryRepository = priceHistoryRepository;
         this.clock = clock;

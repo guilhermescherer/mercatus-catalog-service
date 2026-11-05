@@ -2,7 +2,7 @@ package com.mercatus.catalog.application.product.usecase;
 
 import com.mercatus.catalog.application.product.port.in.GetSkuPriceHistoryUseCase;
 import com.mercatus.catalog.application.product.port.out.SkuPriceHistoryRepository;
-import com.mercatus.catalog.application.product.usecase.support.ProductGateway;
+import com.mercatus.catalog.application.product.usecase.support.ProductAccess;
 import com.mercatus.catalog.domain.product.Product;
 import com.mercatus.catalog.domain.product.SkuPriceHistory;
 import java.util.List;
@@ -13,10 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class GetSkuPriceHistoryService implements GetSkuPriceHistoryUseCase {
 
-    private final ProductGateway gateway;
+    private final ProductAccess gateway;
     private final SkuPriceHistoryRepository priceHistoryRepository;
 
-    GetSkuPriceHistoryService(ProductGateway gateway, SkuPriceHistoryRepository priceHistoryRepository) {
+    GetSkuPriceHistoryService(ProductAccess gateway, SkuPriceHistoryRepository priceHistoryRepository) {
         this.gateway = gateway;
         this.priceHistoryRepository = priceHistoryRepository;
     }

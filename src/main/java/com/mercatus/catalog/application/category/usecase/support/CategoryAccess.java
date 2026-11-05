@@ -9,11 +9,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CategoryGateway {
+public class CategoryAccess {
 
     private final CategoryRepository categoryRepository;
 
-    public CategoryGateway(CategoryRepository categoryRepository) {
+    public CategoryAccess(CategoryRepository categoryRepository) {
         this.categoryRepository = categoryRepository;
     }
 

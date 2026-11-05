@@ -15,11 +15,11 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ProductGateway {
+public class ProductAccess {
 
     private final ProductRepository productRepository;
 
-    public ProductGateway(ProductRepository productRepository) {
+    public ProductAccess(ProductRepository productRepository) {
         this.productRepository = productRepository;
     }
 

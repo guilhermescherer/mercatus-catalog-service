@@ -1,4 +1,4 @@
-package com.mercatus.catalog;
+package com.mercatus.catalog.integration.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

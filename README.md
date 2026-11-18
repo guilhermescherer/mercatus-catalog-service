@@ -11,12 +11,14 @@ Microserviço dono do catálogo da plataforma Mercatus: categorias, produtos e S
 - Listagem com filtros (categoria, status, texto no nome), paginação e ordenação.
 - Consulta de SKU por código, com preço atual, status e disponibilidade de venda.
 - Optimistic locking (`@Version`) com conflito de versão → `409`.
-- Erros em Problem Details (`400`/`404`/`409`/`422`), DTOs JSON, OpenAPI local.
+- Erros em Problem Details (`400`/`401`/`403`/`404`/`409`/`422`/`503`), DTOs JSON, OpenAPI local.
+- Autenticação por JWT emitido pelo Keycloak e autorização por papel em cada endpoint, negando por padrão rotas sem regra.
 
 ## Stack
 
 - Java 25, Spring Boot 4.1 (MVC), via `mercatus-parent:1.0.0`
 - PostgreSQL + Flyway (`ddl-auto: validate`, schema é a fonte da verdade; atributos variáveis em JSONB)
+- Spring Security (OAuth2 Resource Server, JWT)
 - springdoc-openapi
 - Testcontainers, JUnit Jupiter 6, ArchUnit
 
@@ -44,6 +46,7 @@ Pré-requisitos: JDK 25, Maven 3.9+, PostgreSQL 17 para executar a aplicação e
 | `CATALOG_DB_USER` | Usuário do banco | `mercatus` |
 | `CATALOG_DB_PASSWORD` | Senha do banco | `mercatus` |
 | `SERVER_PORT` | Porta HTTP, sem sobrescrita por argumento | `8080` |
+| `MERCATUS_ISSUER_URI` | Issuer dos tokens JWT (realm do Keycloak) | `http://localhost:8180/realms/mercatus` |
 | `MAVEN_USERNAME` | Usuário do GitHub Packages | — |
 | `MAVEN_PASSWORD` | Token do GitHub Packages | — |
 
@@ -60,12 +63,11 @@ Para obter o parent remoto, configure `MAVEN_USERNAME` e `MAVEN_PASSWORD` e acre
 Com os padrões de conexão do Platform:
 
 ```bash
-docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core up -d
-docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core ps
+docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core --profile security up -d --wait
 mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
 ```
 
-Aguarde o PostgreSQL ficar saudável. O initdb cria `catalog` somente em volume novo; para volumes existentes ou configuração personalizada, consulte o [README do Platform](../mercatus-platform/README.md). O Flyway aplica `V1__catalog.sql` no start e o Hibernate valida o schema.
+O perfil `security` sobe o Keycloak, que emite os tokens aceitos pelo serviço. O serviço inicia mesmo com o Keycloak fora do ar; só as requisições autenticadas falham até ele voltar. O initdb cria `catalog` somente em volume novo; para volumes existentes ou configuração personalizada, consulte o [README do Platform](../mercatus-platform/README.md). O Flyway aplica `V1__catalog.sql` no start e o Hibernate valida o schema.
 
 O exemplo usa a porta `8081` para permitir executar outros serviços ao mesmo tempo. Sem o argumento, o padrão é `8080`.
 
@@ -89,10 +91,42 @@ O perfil opcional `local` desativa logs JSON. Para usá-lo, acrescente `-Dspring
 Listagens usam `page=0`, `size=20` e ordenação padrão `name,asc`. Produtos aceitam `categoryId`, `status` e `name`; categorias aceitam paginação e `sort`. Por exemplo:
 
 ```bash
-curl 'http://localhost:8081/api/v1/products?status=ACTIVE&page=0&size=20&sort=name,asc'
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8081/api/v1/products?status=ACTIVE&page=0&size=20&sort=name,asc'
 ```
 
-A resposta paginada contém `content`, `page`, `size` e `totalElements`. Os contratos de request/response completos ficam no OpenAPI gerado pela aplicação. As operações ainda não exigem autenticação.
+A resposta paginada contém `content`, `page`, `size` e `totalElements`. Os contratos de request/response completos ficam no OpenAPI gerado pela aplicação.
+
+## Segurança
+
+Toda rota exige `Authorization: Bearer <token>`, exceto `GET /ping`,
+`/actuator/health`, `/actuator/info` e o OpenAPI (`/v3/api-docs`, `/swagger-ui`).
+O token é um JWT do realm `mercatus` do Keycloak: o serviço confere assinatura
+(chaves públicas do realm, obtidas em `<issuer>/protocol/openid-connect/certs` e
+mantidas em cache), issuer e validade, e lê os papéis de `realm_access.roles`.
+
+| Método e rota | Papéis |
+|---|---|
+| `GET /categories`, `/categories/{id}`, `/products`, `/products/{id}`, `/skus/{code}` | `CUSTOMER`, `OPERATOR` |
+| `GET /skus?code=` | `CUSTOMER`, `OPERATOR`, `SERVICE` |
+| `GET /products/{id}/skus/{skuId}/price-history` | `OPERATOR` |
+| `POST`/`PUT` em categorias, produtos, SKUs, preço, `:activate`/`:deactivate` | `ADMIN` |
+
+`ADMIN` é composto no realm e inclui `OPERATOR`. Qualquer outra rota é negada.
+Sem token ou com token inválido, expirado ou de outro issuer, a resposta é `401`
+com `WWW-Authenticate: Bearer`; papel sem permissão recebe `403`. Se o token não
+puder ser verificado porque as chaves do Keycloak estão inacessíveis (ainda
+não estão em cache), a resposta é `503`. Todas em Problem Details e com
+`X-Correlation-Id`. O serviço inicia mesmo com o Keycloak fora do ar.
+
+Para obter um token de administrador no Keycloak local:
+
+```bash
+TOKEN=$(curl -s http://localhost:8180/realms/mercatus/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=mercatus-cli -d username=admin -d password=admin \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+```
+
+Os usuários de teste e os clientes do realm estão no [README do Platform](../mercatus-platform/README.md).
 
 ### Consulta de SKU por código
 
@@ -129,14 +163,9 @@ mvn verify   # unitários + integração (failsafe, Testcontainers)
 
 Os testes de integração iniciam PostgreSQL 17 em containers próprios; o Compose não precisa estar iniciado. Sem Docker acessível, `mvn test` não valida os cenários de banco e `mvn verify` não pode ser considerado aprovado.
 
-Cobrem: `Money`, `Slug`, regra de ativação, disponibilidade de SKU e histórico de preço; e, via Testcontainers, ativação, unicidade de slug/código, conflito de versão → 409, filtros + paginação e histórico de preço. `CatalogSkuLookupIT` cobre preço/moeda, mudança de preço, combinações de status, SKU sem preço, múltiplos SKUs, `404` e OpenAPI.
+Cobrem: `Money`, `Slug`, regra de ativação, disponibilidade de SKU e histórico de preço; e, via Testcontainers, ativação, unicidade de slug/código, conflito de versão → 409, filtros + paginação e histórico de preço. `CatalogSkuLookupIT` cobre preço/moeda, mudança de preço, combinações de status, SKU sem preço, múltiplos SKUs, `404` e OpenAPI. `CatalogIdentityProviderOutageIT` cobre o serviço com o Keycloak inacessível (`401` sem token, `503` com token). `CatalogSecurityIT` cobre rotas públicas, ausência de token, token malformado, assinado por chave desconhecida, expirado e de outro issuer, `403` por papel, rotas sem regra e a matriz de papéis por endpoint.
 
-Na entrega da fase 4, o lookup foi validado com PostgreSQL real, conforme o
-roadmap. Para a ampliação `order-creation-query`, em 2026-10-26 os 26 testes
-locais passaram; os testes de integração atualizados compilaram, mas sua
-execução foi impedida pelo bloqueio ao Docker. As novas asserções incluem
-nome, atributos, mapa vazio, escolha entre variações e schema OpenAPI. Consulte
-o [registro desta spec](../.kiro/specs/order-creation-query/validation.md).
+Os testes de integração não usam o Keycloak: `TestTokens` gera um par de chaves RSA em memória a cada execução, assina os JWTs e publica a chave pública num servidor HTTP local, no mesmo formato JWKS do Keycloak; o serviço é apontado para ele por `jwk-set-uri`, mantendo a validação de issuer. Nenhuma chave é versionada.
 
 ## CI
 

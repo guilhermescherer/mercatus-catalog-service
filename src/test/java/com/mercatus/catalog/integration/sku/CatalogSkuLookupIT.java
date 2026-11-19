@@ -1,5 +1,10 @@
 package com.mercatus.catalog.integration.sku;
 
+import com.mercatus.catalog.support.TestTokens;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.http.HttpHeaders;
+
 import com.mercatus.catalog.web.category.dto.CategoryResponse;
 import com.mercatus.catalog.web.product.dto.ProductResponse;
 import com.mercatus.catalog.web.product.dto.SkuLookupResponse;
@@ -30,6 +35,11 @@ class CatalogSkuLookupIT {
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
+    @DynamicPropertySource
+    static void security(DynamicPropertyRegistry registry) {
+        TestTokens.register(registry);
+    }
+
     @LocalServerPort
     int port;
 
@@ -41,6 +51,7 @@ class CatalogSkuLookupIT {
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(15000);
         client = RestClient.builder().baseUrl("http://localhost:" + port + "/api/v1")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, TestTokens.bearer(TestTokens.admin()))
                 .requestFactory(factory).build();
     }
 

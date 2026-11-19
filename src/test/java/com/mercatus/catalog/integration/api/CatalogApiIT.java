@@ -1,5 +1,10 @@
 package com.mercatus.catalog.integration.api;
 
+import com.mercatus.catalog.support.TestTokens;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.http.HttpHeaders;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -25,6 +30,11 @@ class CatalogApiIT {
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
+    @DynamicPropertySource
+    static void security(DynamicPropertyRegistry registry) {
+        TestTokens.register(registry);
+    }
+
     @LocalServerPort
     int port;
 
@@ -36,6 +46,7 @@ class CatalogApiIT {
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(15000);
         client = RestClient.builder().baseUrl("http://localhost:" + port + "/api/v1")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, TestTokens.bearer(TestTokens.admin()))
                 .requestFactory(factory).build();
     }
 
